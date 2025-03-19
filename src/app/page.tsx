@@ -1,99 +1,69 @@
 "use client";
 import { RoundedButton } from "@/components/RoundedButton";
 import { invoke } from "@tauri-apps/api/core";
-import Image from "next/image";
 import { useCallback, useState } from "react";
 
 export default function Home() {
-  const [greeted, setGreeted] = useState<string | null>(null);
-  const greet = useCallback((): void => {
-    invoke<string>("greet")
-      .then((s) => {
-        setGreeted(s);
-      })
-      .catch((err: unknown) => {
-        console.error(err);
-      });
-  }, []);
+  const [message, setMessage] = useState<string>("");
+  const [response, setResponse] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+
+  const sendMessage = useCallback(async (): Promise<void> => {
+    if (!message.trim()) return;
+    
+    setLoading(true);
+    setResponse("");
+    
+    try {
+      const result = await invoke<string>("chat", { message });
+      setResponse(result);
+    } catch (err: unknown) {
+      console.error(err);
+      setResponse("Error: Failed to get a response from the model.");
+    } finally {
+      setLoading(false);
+    }
+  }, [message]);
+
+  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      void sendMessage();
+    }
+  }, [sendMessage]);
 
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex flex-col gap-2 items-start">
-          <RoundedButton
-            onClick={greet}
-            title="Call &quot;greet&quot; from Rust"
-          />
-          <p className="break-words w-md">
-            {greeted ?? "Click the button to call the Rust function"}
-          </p>
-        </div>
+    <div className="grid grid-rows-[auto_1fr_auto] h-screen p-8 font-[family-name:var(--font-geist-sans)]">
+      <header className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Mistral.rs Chat Demo</h1>
+        <p className="text-sm text-gray-500">Using Phi-3.5-mini-instruct model</p>
+      </header>
+      
+      <main className="overflow-auto border rounded-lg p-6 mb-6 bg-gray-50 dark:bg-gray-900">
+        {response ? (
+          <div className="whitespace-pre-wrap">{response}</div>
+        ) : (
+          <div className="text-gray-400 italic">
+            {loading ? "Generating response..." : "Send a message to get a response from the AI"}
+          </div>
+        )}
       </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+
+      <footer className="flex gap-2">
+        <textarea
+          value={message}
+          onChange={(e) => { setMessage(e.target.value); }}
+          onKeyDown={handleKeyPress}
+          placeholder="Type your message here..."
+          className="flex-grow p-3 border rounded resize-none h-20"
+          disabled={loading}
+        />
+        <div className="flex flex-col justify-end">
+          <RoundedButton
+            onClick={() => void sendMessage()}
+            title={loading ? "Loading..." : "Send"}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+        </div>
       </footer>
     </div>
   );
